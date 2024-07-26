@@ -1,0 +1,97 @@
+class channel_resp extends uvm_sequence_item;    
+  rand int resp_delay; // #clocks to keep suspend raised
+
+  constraint default_delay { resp_delay >= 0; resp_delay < 8; }
+
+  // UVM macros for built-in automation - These declarations enable automation
+  // of the data_item fields and implement create() and get_type_name()
+  `uvm_object_utils_begin(channel_resp)
+    `uvm_field_int(resp_delay, UVM_ALL_ON | UVM_DEC)
+  `uvm_object_utils_end
+
+  // new - constructor
+  function new (string name = "channel_resp");
+    super.new(name);
+  endfunction : new
+
+endclass : channel_resp
+
+
+class channel_rx_resp_seq extends uvm_sequence#(channel_resp);
+
+  // Required macro for sequences automation
+  `uvm_object_utils(channel_rx_resp_seq)
+  `uvm_declare_p_sequencer(channel_rx_sequencer)
+  // Constructor
+  function new(string name="channel_rx_resp_seq");
+    super.new(name);
+  endfunction
+ 
+  // Sequence body definition
+  virtual task body();
+    `uvm_info(get_type_name(),"Executing channel_rx_resp_seq (forever)", UVM_LOW)
+    // Allocate once
+    `uvm_create(req)
+    forever begin
+      // wait for data valid to get the next response
+       @(posedge p_sequencer.vif.clock iff p_sequencer.vif.data_vld == 1'b1);
+       // Randomize and send many times
+       `uvm_rand_send(req)
+    end
+  endtask : body
+ 
+endclass : channel_rx_resp_seq
+ 
+//------------------------------------------------------------------------------
+// SEQUENCE: channel_rx_long_resp_seq
+//------------------------------------------------------------------------------
+class channel_rx_long_resp_seq extends uvm_sequence#(channel_resp);
+
+  // Required macro for sequences automation
+  `uvm_object_utils(channel_rx_long_resp_seq)
+  `uvm_declare_p_sequencer(channel_rx_sequencer)
+ 
+  // Constructor
+  function new(string name="channel_rx_long_resp_seq");
+    super.new(name);
+  endfunction
+ 
+  // Sequence body definition
+  virtual task body();
+    `uvm_info(get_type_name(),"Executing (forever)", UVM_LOW)
+    // Allocate once
+    `uvm_create(req)
+    req.default_delay.constraint_mode(0);
+    forever begin
+      // wait for data valid to get the next response
+       @(posedge p_sequencer.vif.clock iff p_sequencer.vif.data_vld == 1'b1);
+       // Randomize and send many times
+       `uvm_rand_send_with(req, {resp_delay inside {[0:65]};})
+       //`uvm_rand_send(req)
+    end
+  endtask : body
+ 
+endclass : channel_rx_long_resp_seq
+ 
+
+//seq
+
+class channel_rx_sequencer extends uvm_sequencer #(channel_resp);
+
+   virtual interface channel_if vif;
+
+  // Provide implementations of virtual methods such as get_type_name and create
+  `uvm_component_utils(channel_rx_sequencer)
+
+  // Constructor - required syntax for UVM automation and utilities
+  function new (string name, uvm_component parent);
+    super.new(name, parent);
+  endfunction : new
+
+  // UVM build_phase()
+  function void build_phase(uvm_phase phase);
+    if (!channel_vif_config::get(this, get_full_name(),"vif", vif))
+      `uvm_error("NOVIF",{"virtual interface must be set for: ",get_full_name(),".vif"})
+  endfunction: build_phase
+
+endclass : channel_rx_sequencer
